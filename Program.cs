@@ -43,6 +43,12 @@ builder.Services.AddAuthentication(options =>
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
+.AddCookie(options =>
+{
+    // Set cookie options
+    options.Cookie.SameSite = SameSiteMode.None;  // Allow cross-origin cookies
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;  // Always use secure cookies (HTTPS)
+})
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -56,6 +62,7 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]))
     };
 });
+
 
 
 builder.Services.AddControllers();

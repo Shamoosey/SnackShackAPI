@@ -22,30 +22,81 @@ namespace SnackShackAPI.Controllers
         [HttpPost("discord")]
         public async Task<IActionResult> DiscordAuth([FromBody] DiscordAuthRequest request)
         {
-            if (string.IsNullOrEmpty(request.Code))
-                return BadRequest("Code is required.");
-
             try
             {
-                // Step 1: Exchange code for access token
+                if (string.IsNullOrEmpty(request.Code))
+                {
+                    throw new Exception("Request did not include code, unable to complete");
+                }
+         
                 var tokenResponse = await ExchangeCodeForToken(request.Code);
                 if (tokenResponse == null)
-                    return BadRequest("Failed to exchange code for token.");
+                {
+                    throw new Exception("Failed to exchange code for token");
+                }
 
-                // Step 2: Fetch user info from Discord API
                 var userInfo = await FetchDiscordUserInfo(tokenResponse.AccessToken);
                 if (userInfo == null)
-                    return BadRequest("Failed to fetch user info.");
+                {
+                    throw new Exception("Failed to fetch user info");
+                }
 
-                // Step 3: Generate JWT for your application
-                var jwt = GenerateJwtToken(userInfo);
+                var accessToken = GenerateJwtToken(userInfo, 15); // 15 minutes for access token
+                var refreshToken = GenerateJwtToken(userInfo, 1440); // 1 day (1440 minutes) for refresh token
 
-                return Ok(new { token = jwt, user = userInfo });
+                //refresh token as an HTTP-only secure cookie
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.None, //change before deploy
+                    Expires = DateTime.UtcNow.AddDays(1)
+                };
+                Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
+
+                return Ok(new DiscordAuthResult { Token = accessToken });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = ex.Message });
             }
+        }
+
+        [HttpPost("refresh-token")]
+        public IActionResult RefreshToken()
+        {
+            // Step 1: Retrieve refresh token from the cookie
+            if (Request.Cookies.TryGetValue("refreshToken", out var refreshToken))
+            {
+                try
+                {
+                    // Step 2: Validate refresh token
+                    var tokenHandler = new JwtSecurityTokenHandler();
+                    var key = Encoding.UTF8.GetBytes(_config["Jwt:Secret"]);
+                    tokenHandler.ValidateToken(refreshToken, new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ClockSkew = TimeSpan.Zero
+                    }, out SecurityToken validatedToken);
+
+                    // Step 3: Generate a new access token
+                    var jwtToken = (JwtSecurityToken)validatedToken;
+                    var username = jwtToken.Claims.First(x => x.Type == JwtRegisteredClaimNames.Name).Value;
+                    var userInfo = new DiscordUserInfo { Username = username }; // Mock user info
+                    var newAccessToken = GenerateJwtToken(userInfo, 15); // 15 minutes for access token
+
+                    return Ok(newAccessToken);
+                }
+                catch
+                {
+                    return Unauthorized("Invalid or expired refresh token");
+                }
+            }
+
+            return Unauthorized("Refresh token not found");
         }
 
         private async Task<DiscordTokenResponse> ExchangeCodeForToken(string code)
@@ -65,10 +116,7 @@ namespace SnackShackAPI.Controllers
             });
 
             var response = await _httpClient.PostAsync(discordTokenUrl, payload);
-            Console.WriteLine($"Response Content: {await response.Content.ReadAsStringAsync()}");
-
-            if (!response.IsSuccessStatusCode)
-                return null;
+            response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<DiscordTokenResponse>(content);
@@ -87,17 +135,15 @@ namespace SnackShackAPI.Controllers
             return JsonConvert.DeserializeObject<DiscordUserInfo>(content);
         }
 
-        private string GenerateJwtToken(DiscordUserInfo userInfo)
+        private string GenerateJwtToken(DiscordUserInfo userInfo, int expiresInMinutes)
         {
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Secret"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, userInfo.Id),
-                new Claim(JwtRegisteredClaimNames.Name, userInfo.Username),
-                new Claim(JwtRegisteredClaimNames.Email, userInfo.Email ?? ""),
-                new Claim("Avatar", userInfo.Avatar ?? ""),
+                new Claim(JwtRegisteredClaimNames.Sub, userInfo.Id ?? Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Name, userInfo.Username ?? "Unknown"),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -105,11 +151,16 @@ namespace SnackShackAPI.Controllers
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddDays(7),
+                expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+    }
+
+    public class DiscordAuthResult
+    {
+        public string Token { get; set; }
     }
 
     public class DiscordAuthRequest
