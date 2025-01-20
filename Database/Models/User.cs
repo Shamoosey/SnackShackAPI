@@ -17,6 +17,8 @@ namespace SnackShackAPI.Database.Models
         [Required]
         public DateTime CreatedDate { get; set; }
 
+        public bool IsAdmin { get; set; }
+
         public virtual ICollection<Account> Accounts { get; set; }
         public virtual ICollection<Transaction> InitiatedTransactions { get; set; }
     }

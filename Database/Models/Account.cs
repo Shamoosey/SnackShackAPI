@@ -13,6 +13,9 @@ namespace SnackShackAPI.Database.Models
         public Guid Id { get; set; }
 
         [Required]
+        public string AccountName { get; set; }
+
+        [Required]
         [Column(TypeName = "decimal(18,2)")]
         public decimal Amount { get; set; }
 

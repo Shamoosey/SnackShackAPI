@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SnackShackAPI;
+using SnackShackAPI.Controllers;
 using SnackShackAPI.Database;
 using SnackShackAPI.Services;
 using System.Text;
@@ -10,6 +11,8 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddTransient<IUserService, UserService>();
+builder.Services.AddTransient<IAccountService, AccountService>();
+builder.Services.AddTransient<IAuthService, AuthService>();
 
 // Add services to the container.
 var configuration = new ConfigurationBuilder()

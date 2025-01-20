@@ -1,0 +1,51 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using SnackShackAPI.DTOs;
+using SnackShackAPI.Models;
+using SnackShackAPI.Services;
+using System.IdentityModel.Tokens.Jwt;
+
+namespace SnackShackAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AccountController : ControllerBase
+    {
+        private readonly IAccountService _accountService;
+
+        public AccountController(IAccountService accountService)
+        {
+            _accountService = accountService;
+        }
+
+        [HttpGet("{userId}")]
+        public async Task<IActionResult> GetAccount(Guid userId)
+        {
+            try
+            {
+                var accounts = await _accountService.GetAccountsByUser(userId);
+
+                return Ok(accounts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving the users accounts.", error = ex.Message });
+            }
+        }
+
+        [HttpPost("UpdateAccountBalance")]
+        public async Task<IActionResult> UpdateAccountBalance([FromBody]UpdateAccountBalanceRequest request) 
+        {
+            try
+            {
+                var accounts = await _accountService.UpdateAccountBalance(request);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while retrieving the users accounts.", error = ex.Message });
+            }
+        }
+    }
+}

@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnackShackAPI.DTOs;
 using SnackShackAPI.Services;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace SnackShackAPI.Controllers
 {
@@ -110,5 +112,34 @@ namespace SnackShackAPI.Controllers
                 return StatusCode(500, new { message = "An error occurred while deleting the user.", error = ex.Message });
             }
         }
+
+        [HttpGet("me")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            try
+            {
+                var email = User.Claims.FirstOrDefault(c => c.Type.Contains("email"))?.Value;
+
+                if (string.IsNullOrEmpty(email))
+                {
+                    return Unauthorized(new { message = "Invalid or missing email claim in token." });
+                }
+
+                // Use the email to retrieve the user
+                var user = await _userService.GetUser(email);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found." });
+                }
+
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception here if needed
+                return StatusCode(500, new { message = "An error occurred while retrieving the user.", error = ex.Message });
+            }
+        }
+
     }
 }

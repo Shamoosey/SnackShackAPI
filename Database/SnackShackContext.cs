@@ -22,6 +22,15 @@ namespace SnackShackAPI.Database
                 .WithMany(a => a.TransactionsAsReceiver)
                 .HasForeignKey(t => t.ReceiverAccountId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Currency>().HasData(
+               new Currency
+               {
+                   Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                   CurrencyCode = "BWL",
+                   CurrencyName = "Bowl"
+               }
+            );
         }
 
         public DbSet<User> Users { get; set; }

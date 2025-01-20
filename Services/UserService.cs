@@ -64,6 +64,24 @@ namespace SnackShackAPI.Services
             return result;
         }
 
+        public async Task<bool> UserExists(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            return user != null;
+        }
+
+        public async Task<UserDTO> GetUser(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+
+            if (user == null)
+            {
+                throw new Exception("User not found");
+            }
+
+            return _mapper.Map<UserDTO>(user);
+        }
+
         public async Task<UserDTO> GetUser(Guid userId)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
@@ -108,6 +126,8 @@ namespace SnackShackAPI.Services
 
     public interface IUserService
     {
+        Task<bool> UserExists(string email);
+        Task<UserDTO> GetUser(string email);
         Task<UserDTO> GetUser(Guid userId);
         Task<IEnumerable<UserDTO>> GetUsers();
         Task<bool> UpdateUser(Guid userId, UserDTO updateUserDTO);

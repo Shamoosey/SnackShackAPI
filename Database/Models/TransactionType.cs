@@ -3,7 +3,8 @@
     public enum TransactionType
     {
         UserToUserTransfer,
-        SpendToBank,
-        BankDeposit
+        AccountToBank,
+        BankToAccount,
+        Slots
     }
 }
