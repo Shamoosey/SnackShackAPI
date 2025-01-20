@@ -18,7 +18,7 @@ namespace SnackShackAPI.Controllers
             _accountService = accountService;
         }
 
-        [HttpGet("{userId}")]
+        [HttpGet("GetByUserGetByUser/{userId}")]
         public async Task<IActionResult> GetAccount(Guid userId)
         {
             try
@@ -30,6 +30,21 @@ namespace SnackShackAPI.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = "An error occurred while retrieving the users accounts.", error = ex.Message });
+            }
+        }
+
+        [HttpPut("UpdateAccountInfo/{accountId}")]
+        public async Task<IActionResult> UpdateAccountInformation(Guid accountId, [FromBody] UpdateAccountInfomationRequest data)
+        {
+            try
+            {
+                var result = await _accountService.UpdateAccountInformation(accountId, data);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the users accounts.", error = ex.Message });
             }
         }
 

@@ -4,7 +4,6 @@
     {
         UserToUserTransfer,
         AccountToBank,
-        BankToAccount,
-        Slots
+        BankToAccount
     }
 }

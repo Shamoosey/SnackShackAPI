@@ -54,6 +54,30 @@ namespace SnackShackAPI.Services
             return result;
         }
 
+        public async Task<bool> UpdateAccountInformation(Guid acccountId, UpdateAccountInfomationRequest data)
+        {
+            bool result = false;
+            try
+            {
+                var account = await _context.Accounts.FirstOrDefaultAsync(x => x.Id == acccountId);
+
+                if (account == null)
+                {
+                    throw new Exception("Account doesn't exist");
+                }
+
+                account.AccountName = data.AccountName;
+
+                result = (await _context.SaveChangesAsync()) > 0;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error occurred while updating account information {acccountId}");
+                result = false;
+            }
+
+            return result;
+        }
         public async Task<bool> UpdateAccountBalance(UpdateAccountBalanceRequest request)
         {
             bool result = false;
@@ -70,13 +94,11 @@ namespace SnackShackAPI.Services
                 account.Amount = newBalance;
 
                 Guid? receieverAccountId =
-                    request.TransactionType == TransactionType.BankToAccount ||
-                    (request.TransactionType == TransactionType.Slots && request.Amount > 0) ?
+                    request.TransactionType == TransactionType.BankToAccount ?
                     request.AccountId : null;
 
                 Guid? senderAccountId =
-                    request.TransactionType == TransactionType.AccountToBank ||
-                    (request.TransactionType == TransactionType.Slots && request.Amount < 0) ?
+                    request.TransactionType == TransactionType.AccountToBank ?
                     request.AccountId : null;
 
                 var transaction = new Transaction
@@ -139,6 +161,8 @@ namespace SnackShackAPI.Services
     {
         Task<bool> CreateAccount(Guid userId, string name, decimal? startingAmount, string currencyCode);
         Task<List<AccountDTO>> GetAccountsByUser(Guid userId);
+
+        Task<bool> UpdateAccountInformation(Guid acccountId, UpdateAccountInfomationRequest data);
         Task<bool> UpdateAccountBalance(UpdateAccountBalanceRequest request);
     }
 }
