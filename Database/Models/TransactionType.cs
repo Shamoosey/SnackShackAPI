@@ -4,6 +4,7 @@
     {
         UserToUserTransfer,
         AccountToBank,
-        BankToAccount
+        BankToAccount,
+        AccountToAccount
     }
 }

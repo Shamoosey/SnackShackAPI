@@ -16,9 +16,10 @@ namespace SnackShackAPI.Database.Models
         [Required]
         [MaxLength(50)]
         public string CurrencyName { get; set; }
-       
         
         // Navigation properties
         public virtual ICollection<Account> Accounts { get; set; }
+        public virtual ICollection<CurrencyExchangeRate> FromExchangeRates { get; set; }
+        public virtual ICollection<CurrencyExchangeRate> ToExchangeRates { get; set; } 
     }
 }

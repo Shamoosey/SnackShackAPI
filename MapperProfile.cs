@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using SnackShackAPI.Database.Models;
 using SnackShackAPI.DTOs;
+using SnackShackAPI.Models;
 
 namespace SnackShackAPI
 {
@@ -9,6 +10,7 @@ namespace SnackShackAPI
         public MappingProfile()
         {
             CreateMap<User, UserDTO>().ReverseMap();
+            CreateMap<CurrencyExchangeRate, ExchangeRateDTO>().ReverseMap();
         }
     }
 }

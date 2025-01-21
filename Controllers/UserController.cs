@@ -1,8 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnackShackAPI.DTOs;
 using SnackShackAPI.Services;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace SnackShackAPI.Controllers
 {

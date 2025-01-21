@@ -53,12 +53,12 @@ namespace SnackShackAPI.Controllers
                     };
 
                     await _userService.CreateUser(user);
+                    var accounts = _config.GetSection("Data:DefaultAccounts").Get<List<DefaultAccountConfig>>();
                     var userDto = await _userService.GetUser(user.Email);
-
-                    var defaultStartingAmount = _config.GetValue<decimal>("Data:DefaultAccount:StartingAmount");
-                    var defaultCurrency = _config.GetValue<string>("Data:DefaultAccount:CurrencyCode");
-                    var defaultName = _config.GetValue<string>("Data:DefaultAccount:Name");
-                    await _accountService.CreateAccount(userDto.Id, defaultName, defaultStartingAmount, defaultCurrency);
+                    foreach (var account in accounts)
+                    {
+                        await _accountService.CreateAccount(userDto.Id, account.Name, account.StartingAmount, account.CurrencyCode);
+                    }
                 }
 
                 if (!isUserInServer)

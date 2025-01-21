@@ -8,6 +8,8 @@
 
         public string CurrencyCode { get; set; }
 
+        public Guid CurrencyId { get; set; }
+
         public string AccountName { get; set; }
     }
 }

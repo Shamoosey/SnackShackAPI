@@ -48,6 +48,21 @@ namespace SnackShackAPI.Controllers
             }
         }
 
+        [HttpPut("TransferFunds")]
+        public async Task<IActionResult> TransferFunds([FromBody] TransferFundsRequest data)
+        {
+            try
+            {
+                var result = await this._accountService.TransferFunds(data);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the users accounts.", error = ex.Message });
+            }
+        }
+
         [HttpPost("UpdateAccountBalance")]
         public async Task<IActionResult> UpdateAccountBalance([FromBody]UpdateAccountBalanceRequest request) 
         {

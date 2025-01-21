@@ -146,6 +146,7 @@ namespace SnackShackAPI.Services
                         AccountId = x.Id,
                         Amount = x.Amount,
                         AccountName = x.AccountName,
+                        CurrencyId = x.Currency.Id,
                         CurrencyCode = x.Currency.CurrencyCode,
                 }).ToList();
             }
@@ -156,13 +157,89 @@ namespace SnackShackAPI.Services
 
             return result;
         }
+
+        public async Task<bool> TransferFunds(TransferFundsRequest request)
+        {
+            var result = false;
+
+            try
+            {
+                var senderAccount = _context.Accounts.FirstOrDefault(x => x.Id == request.FromAccountId);
+                var receiverAccount = _context.Accounts.FirstOrDefault(x => x.Id == request.ToAccountId);
+
+                if (senderAccount == null)
+                {
+                    throw new Exception("Sender Account doesn't exist");
+                }
+
+                if (receiverAccount == null)
+                {
+                    throw new Exception("Receiver Account doesn't exist");
+                }
+
+                if (senderAccount.Amount < request.Amount)
+                {
+                    throw new Exception("Insufficient funds, unable to complete request");
+                }
+
+                var transaction = new Transaction
+                {
+                    TransactionDate = DateTime.UtcNow,
+                    TransactionType = TransactionType.AccountToAccount,
+                    Amount = request.Amount,
+                    InitiatedByUserId = request.UserId,
+                    ReceiverAccountId = request.ToAccountId,
+                    SenderAccountId = request.FromAccountId,
+                    Notes = request.Notes
+                };
+                _context.Transactions.Add(transaction);
+
+
+                var senderOldBalance = senderAccount.Amount;
+                var senderNewBalance = senderOldBalance - request.Amount;
+                senderAccount.Amount = senderNewBalance;
+
+                _context.AccountHistories.Add(new AccountHistory
+                {
+                    AccountId = request.FromAccountId,
+                    ChangeDate = DateTime.UtcNow,
+                    NewAmount = senderNewBalance,
+                    PreviousAmount = senderOldBalance,
+                    TransactionId = transaction.Id,
+                });
+
+                var fromCurrencyExchangeRate = _context.CurrencyExchangeRates.FirstOrDefault(x => x.FromCurrencyId == senderAccount.CurrencyId);
+                
+                var receiverOldBalance = receiverAccount.Amount;
+                var receiverNewBalance = receiverOldBalance + (decimal)((double)request.Amount * (fromCurrencyExchangeRate?.Rate ?? 1));
+                receiverAccount.Amount = receiverNewBalance;
+                
+                _context.AccountHistories.Add(new AccountHistory
+                {
+                    AccountId = request.ToAccountId,
+                    ChangeDate = DateTime.UtcNow,
+                    NewAmount = receiverNewBalance,
+                    PreviousAmount = receiverOldBalance,
+                    TransactionId = transaction.Id,
+                });
+
+                result = (await _context.SaveChangesAsync()) > 0;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error occurred while transfering funds for user {request.UserId}");
+                result = false;
+            }
+
+            return result;
+        }
     }
     public interface IAccountService
     {
         Task<bool> CreateAccount(Guid userId, string name, decimal? startingAmount, string currencyCode);
         Task<List<AccountDTO>> GetAccountsByUser(Guid userId);
-
         Task<bool> UpdateAccountInformation(Guid acccountId, UpdateAccountInfomationRequest data);
         Task<bool> UpdateAccountBalance(UpdateAccountBalanceRequest request);
+        Task<bool> TransferFunds(TransferFundsRequest request);
     }
 }

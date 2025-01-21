@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using SnackShackAPI.Controllers;
 using SnackShackAPI.Models;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 
@@ -25,6 +26,7 @@ namespace SnackShackAPI.Services
             var clientSecret = _config["Discord:ClientSecret"];
             var redirectUri = _config["Discord:RedirectUri"];
 
+
             var payload = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("client_id", clientId),
@@ -34,7 +36,17 @@ namespace SnackShackAPI.Services
                 new KeyValuePair<string, string>("redirect_uri", redirectUri)
             });
 
+            var request = new HttpRequestMessage(HttpMethod.Post, discordTokenUrl)
+            {
+                Content = payload
+            };
+
+            // Add headers to the request
+            request.Headers.Add("Accept", "application/json");
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
+
             var response = await _httpClient.PostAsync(discordTokenUrl, payload);
+            Console.WriteLine(await response.Content.ReadAsStringAsync());
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();

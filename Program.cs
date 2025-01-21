@@ -13,6 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTransient<IUserService, UserService>();
 builder.Services.AddTransient<IAccountService, AccountService>();
 builder.Services.AddTransient<IAuthService, AuthService>();
+builder.Services.AddTransient<IExchangeRateService, ExchangeRateService>();
 
 // Add services to the container.
 var configuration = new ConfigurationBuilder()
@@ -65,8 +66,6 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]))
     };
 });
-
-
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
