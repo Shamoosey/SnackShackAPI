@@ -24,6 +24,8 @@ namespace SnackShackAPI.Database.Models
 
         public string? Notes { get; set; }
 
+        [Required]
+        public bool IsPending { get; set; }
 
         [ForeignKey(nameof(InitiatedByUser))]
         public Guid InitiatedByUserId { get; set; }

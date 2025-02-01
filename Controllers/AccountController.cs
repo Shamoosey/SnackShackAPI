@@ -77,5 +77,19 @@ namespace SnackShackAPI.Controllers
                 return StatusCode(500, new { message = "An error occurred while retrieving the users accounts.", error = ex.Message });
             }
         }
+
+        [HttpPost("UserTransferFunds")]
+        public async Task<IActionResult> UserTransferFunds([FromBody] UserTransferFundsRequest request)
+        {
+            try
+            {
+                var result = await _accountService.UserTransferFunds(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while updating the users accounts.", error = ex.Message });
+            }
+        }
     }
 }

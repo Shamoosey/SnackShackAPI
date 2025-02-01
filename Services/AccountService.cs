@@ -1,11 +1,11 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SnackShackAPI.Database;
 using SnackShackAPI.Database.Models;
 using SnackShackAPI.DTOs;
 using SnackShackAPI.Models;
-using SnackShackAPI.Services;
-using System.Runtime.InteropServices.Marshalling;
+using SnackShackAPI.SignalR;
 
 namespace SnackShackAPI.Services
 {
@@ -14,12 +14,14 @@ namespace SnackShackAPI.Services
         private readonly ILogger<UserService> _logger;
         private readonly SnackShackContext _context;
         private readonly IMapper _mapper;
+        private readonly IHubContext<NotificationHub> _notificationHub;
 
-        public AccountService(SnackShackContext context, IMapper mapper, ILogger<UserService> logger)
+        public AccountService(SnackShackContext context, IMapper mapper, ILogger<UserService> logger, IHubContext<NotificationHub> notificationHub)
         {
             _context = context;
             _mapper = mapper;
             _logger = logger;
+            _notificationHub = notificationHub;
         }
 
         public async Task<bool> CreateAccount(Guid userId, string name, decimal? startingAmount, string currencyCode)
@@ -233,6 +235,152 @@ namespace SnackShackAPI.Services
 
             return result;
         }
+
+        public async Task<bool> UserTransferFunds(UserTransferFundsRequest request)
+        {
+            var result = false;
+
+            try
+            {
+                // Fetch sender and receiver accounts
+                var senderAccount = await _context.Accounts.FirstOrDefaultAsync(x => x.Id == request.FromAccountId);
+                var receiverAccount = await _context.Accounts.FirstOrDefaultAsync(x => x.Id == request.ToAccountId);
+
+                if (senderAccount == null)
+                    throw new Exception("Sender account doesn't exist");
+
+                if (receiverAccount == null)
+                    throw new Exception("Receiver account doesn't exist");
+
+                if (senderAccount.Amount < request.Amount)
+                    throw new Exception("Insufficient funds, unable to initiate transfer");
+
+                var transaction = new Transaction
+                {
+                    Id = Guid.NewGuid(),
+                    TransactionDate = DateTime.UtcNow,
+                    TransactionType = TransactionType.UserToUserTransfer,
+                    Amount = request.Amount,
+                    InitiatedByUserId = request.UserId,
+                    SenderAccountId = request.FromAccountId,
+                    ReceiverAccountId = request.ToAccountId,
+                    Notes = request.Notes,
+                    IsPending = true
+                };
+
+                _context.Transactions.Add(transaction);
+
+                await this._notificationHub.Clients.All.SendAsync(
+                    "TranasferNotification",
+                    new TransferNotification
+                    {
+                        TransactionId = transaction.Id,
+                        FromUserId = senderAccount.UserId,
+                        FromAccountName = senderAccount.AccountName,
+                        Amount = request.Amount,
+                        Currency = senderAccount.Currency.CurrencyCode
+                    }
+                );
+
+                result = (await _context.SaveChangesAsync()) > 0;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error occurred while initiating transfer for user {request.UserId}");
+                result = false;
+            }
+
+            return result;
+        }
+
+
+        public async Task<bool> AcceptTransfer(Guid transactionId)
+        {
+            var result = false;
+
+            try
+            {
+                var transaction = await _context.Transactions.FirstOrDefaultAsync(x => x.Id == transactionId && x.IsPending);
+
+                if (transaction == null)
+                    throw new Exception("Transaction not found or already processed");
+
+                var senderAccount = await _context.Accounts.FirstOrDefaultAsync(x => x.Id == transaction.SenderAccountId);
+                var receiverAccount = await _context.Accounts.FirstOrDefaultAsync(x => x.Id == transaction.ReceiverAccountId);
+
+                if (senderAccount == null || receiverAccount == null)
+                    throw new Exception("Accounts associated with the transaction do not exist");
+
+                // Deduct amount from sender
+                senderAccount.Amount -= transaction.Amount;
+
+                // Convert currency if needed and add to receiver
+                var exchangeRate = await _context.CurrencyExchangeRates.FirstOrDefaultAsync(x =>
+                    x.FromCurrencyId == senderAccount.CurrencyId && x.ToCurrencyId == receiverAccount.CurrencyId);
+
+                var convertedAmount = (decimal)((double)transaction.Amount * (exchangeRate?.Rate ?? 1));
+                receiverAccount.Amount += convertedAmount;
+
+                // Update transaction to mark as completed
+                transaction.IsPending = false;
+
+                // Log changes in account history
+                _context.AccountHistories.AddRange(new[]
+                {
+            new AccountHistory
+            {
+                AccountId = senderAccount.Id,
+                ChangeDate = DateTime.UtcNow,
+                NewAmount = senderAccount.Amount,
+                PreviousAmount = senderAccount.Amount + transaction.Amount,
+                TransactionId = transaction.Id
+            },
+            new AccountHistory
+            {
+                AccountId = receiverAccount.Id,
+                ChangeDate = DateTime.UtcNow,
+                NewAmount = receiverAccount.Amount,
+                PreviousAmount = receiverAccount.Amount - convertedAmount,
+                TransactionId = transaction.Id
+            }
+        });
+
+                result = (await _context.SaveChangesAsync()) > 0;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error occurred while accepting transfer with transaction ID {transactionId}");
+                result = false;
+            }
+
+            return result;
+        }
+
+        public async Task<bool> DenyTransfer(Guid transactionId)
+        {
+            var result = false;
+
+            try
+            {
+                var transaction = await _context.Transactions.FirstOrDefaultAsync(x => x.Id == transactionId && x.IsPending);
+
+                if (transaction == null)
+                    throw new Exception("Transaction not found or already processed");
+
+                // Simply delete the pending transaction
+                _context.Transactions.Remove(transaction);
+
+                result = (await _context.SaveChangesAsync()) > 0;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error occurred while denying transfer with transaction ID {transactionId}");
+                result = false;
+            }
+
+            return result;
+        }
+
     }
     public interface IAccountService
     {
@@ -241,5 +389,8 @@ namespace SnackShackAPI.Services
         Task<bool> UpdateAccountInformation(Guid acccountId, UpdateAccountInfomationRequest data);
         Task<bool> UpdateAccountBalance(UpdateAccountBalanceRequest request);
         Task<bool> TransferFunds(TransferFundsRequest request);
+        Task<bool> UserTransferFunds(UserTransferFundsRequest request);
+        Task<bool> AcceptTransfer(Guid transactionId);
+        Task<bool> DenyTransfer(Guid transactionId);
     }
 }

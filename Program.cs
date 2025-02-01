@@ -1,11 +1,17 @@
 using AutoMapper;
+using Microsoft.AspNet.SignalR;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SnackShackAPI;
 using SnackShackAPI.Controllers;
 using SnackShackAPI.Database;
 using SnackShackAPI.Services;
+using SnackShackAPI.SignalR;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +20,7 @@ builder.Services.AddTransient<IUserService, UserService>();
 builder.Services.AddTransient<IAccountService, AccountService>();
 builder.Services.AddTransient<IAuthService, AuthService>();
 builder.Services.AddTransient<IExchangeRateService, ExchangeRateService>();
+builder.Services.AddSignalR();
 
 // Add services to the container.
 var configuration = new ConfigurationBuilder()
@@ -42,18 +49,20 @@ builder.Services.AddCors(options =>
             .AllowCredentials());                 // Allow cookies or credentials
 });
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+builder.Services
+.AddAuthentication(options => {
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 })
-.AddCookie(options =>
+.AddDiscord(options =>
 {
-    // Set cookie options
-    options.Cookie.SameSite = SameSiteMode.None;  // Allow cross-origin cookies
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;  // Always use secure cookies (HTTPS)
-})
-.AddJwtBearer(options =>
+    options.ClientId = configuration["Discord:ClientId"];
+    options.ClientSecret = configuration["Discord:ClientSecret"];
+    //options.CallbackPath = configuration["Discord:RedirectUri"];
+    //options.TokenEndpoint = "https://discord.com/api/oauth2/token";
+
+}).AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -66,6 +75,8 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]))
     };
 });
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -81,6 +92,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(x => x.SwaggerEndpoint("/swagger/v1/swagger.json", "SnackShackAPI v1"));
 }
 
+app.UseRouting();
+
 app.UseHttpsRedirection();
 
 app.UseCors("AllowFrontend");
@@ -88,7 +101,20 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.UseSwagger();
+
+
+var idProvider = new UserIdProvider();
+GlobalHost.DependencyResolver.Register(typeof(Microsoft.AspNet.SignalR.IUserIdProvider), () => idProvider);
+
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+    endpoints.MapHub<NotificationHub>("/notifications");
+});
+
+//app.MapControllers();
 
 string port = configuration["Application:Port"];
 
