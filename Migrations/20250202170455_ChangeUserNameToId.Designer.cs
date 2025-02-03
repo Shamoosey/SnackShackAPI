@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SnackShackAPI.Database;
 
@@ -11,9 +12,11 @@ using SnackShackAPI.Database;
 namespace SnackShackAPI.Migrations
 {
     [DbContext(typeof(SnackShackContext))]
-    partial class SnackShackContextModelSnapshot : ModelSnapshot
+    [Migration("20250202170455_ChangeUserNameToId")]
+    partial class ChangeUserNameToId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -175,7 +178,7 @@ namespace SnackShackAPI.Migrations
                             Id = new Guid("20527053-db1e-44b2-9234-5e205b599e87"),
                             EffectiveDate = new DateTime(2025, 1, 20, 0, 0, 0, 0, DateTimeKind.Utc),
                             FromCurrencyId = new Guid("18a8c6a6-18a1-4421-9bfd-5886a011be17"),
-                            Rate = 0.10000000000000001,
+                            Rate = 10.0,
                             ToCurrencyId = new Guid("6922d54e-5509-4e5c-aeaa-4399a90f7073")
                         },
                         new
@@ -183,7 +186,7 @@ namespace SnackShackAPI.Migrations
                             Id = new Guid("b4de049e-a4f7-4cdd-a696-e793990eef66"),
                             EffectiveDate = new DateTime(2025, 1, 20, 0, 0, 0, 0, DateTimeKind.Utc),
                             FromCurrencyId = new Guid("6922d54e-5509-4e5c-aeaa-4399a90f7073"),
-                            Rate = 10.0,
+                            Rate = 0.10000000000000001,
                             ToCurrencyId = new Guid("18a8c6a6-18a1-4421-9bfd-5886a011be17")
                         },
                         new

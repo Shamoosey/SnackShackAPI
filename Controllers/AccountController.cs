@@ -4,6 +4,7 @@ using SnackShackAPI.DTOs;
 using SnackShackAPI.Models;
 using SnackShackAPI.Services;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace SnackShackAPI.Controllers
 {

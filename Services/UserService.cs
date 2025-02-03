@@ -19,17 +19,18 @@ namespace SnackShackAPI.Services
             _logger = logger;
         }
 
-        public async Task<bool> CreateUser(UserDTO createUserDTO)
+        public async Task<bool> CreateUser(string discordUserId, string email)
         {
             bool result = false;
             try
             {
-                // Map DTO to User entity
-                var newUser = _mapper.Map<User>(createUserDTO);
-                newUser.Id = Guid.NewGuid(); // Set a new GUID for the user
-                _context.Users.Add(newUser);
-                await _context.SaveChangesAsync();
-                result = true;
+                _context.Users.Add(new User {
+                    DiscordUserID = discordUserId,
+                    Email = email,
+                    CreatedDate = DateTime.UtcNow,
+                    IsAdmin = false,
+                });
+                result = (await _context.SaveChangesAsync() > 0);
             }
             catch (Exception e)
             {
@@ -39,58 +40,15 @@ namespace SnackShackAPI.Services
             return result;
         }
 
-        public async Task<bool> UpdateUser(Guid userId, UserDTO updateUserDTO)
+        public async Task<UserDTO> GetUserByDiscord(string discordUserId)
         {
-            bool result = false;
-            try
-            {
-                var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
-
-                if (existingUser == null)
-                {
-                    throw new Exception("User doesn't exist");
-                }
-
-                // Map DTO to existing User entity
-                _mapper.Map(updateUserDTO, existingUser);
-                await _context.SaveChangesAsync();
-                result = true;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "Error occurred while updating user");
-                result = false;
-            }
-            return result;
-        }
-
-        public async Task<bool> UserExists(string email)
-        {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-            return user != null;
-        }
-
-        public async Task<UserDTO> GetUser(string email)
-        {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-
-            if (user == null)
-            {
-                throw new Exception("User not found");
-            }
-
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.DiscordUserID == discordUserId);
             return _mapper.Map<UserDTO>(user);
         }
 
-        public async Task<UserDTO> GetUser(Guid userId)
+        public async Task<UserDTO> GetUserById(Guid userId)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
-
-            if (user == null)
-            {
-                throw new Exception("User not found");
-            }
-
             return _mapper.Map<UserDTO>(user);
         }
 
@@ -126,12 +84,10 @@ namespace SnackShackAPI.Services
 
     public interface IUserService
     {
-        Task<bool> UserExists(string email);
-        Task<UserDTO> GetUser(string email);
-        Task<UserDTO> GetUser(Guid userId);
+        Task<UserDTO> GetUserByDiscord(string discordUserId);
+        Task<UserDTO> GetUserById(Guid userId);
         Task<IEnumerable<UserDTO>> GetUsers();
-        Task<bool> UpdateUser(Guid userId, UserDTO updateUserDTO);
-        Task<bool> CreateUser(UserDTO createUserDTO);
+        Task<bool> CreateUser(string discordUserId, string email);
         Task<bool> DeleteUser(Guid userId);
     }
 }

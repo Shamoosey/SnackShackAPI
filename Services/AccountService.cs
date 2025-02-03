@@ -161,6 +161,7 @@ namespace SnackShackAPI.Services
         public async Task<bool> TransferFunds(TransferFundsRequest request)
         {
             var result = false;
+            var transaction = _context.Database.BeginTransaction();
 
             try
             {
@@ -182,7 +183,7 @@ namespace SnackShackAPI.Services
                     throw new Exception("Insufficient funds, unable to complete request");
                 }
 
-                var transaction = new Transaction
+                var accountTransaction = new Transaction
                 {
                     TransactionDate = DateTime.UtcNow,
                     TransactionType = TransactionType.AccountToAccount,
@@ -192,7 +193,7 @@ namespace SnackShackAPI.Services
                     SenderAccountId = request.FromAccountId,
                     Notes = request.Notes
                 };
-                _context.Transactions.Add(transaction);
+                _context.Transactions.Add(accountTransaction);
 
 
                 var senderOldBalance = senderAccount.Amount;
@@ -205,13 +206,16 @@ namespace SnackShackAPI.Services
                     ChangeDate = DateTime.UtcNow,
                     NewAmount = senderNewBalance,
                     PreviousAmount = senderOldBalance,
-                    TransactionId = transaction.Id,
+                    TransactionId = accountTransaction.Id,
                 });
 
-                var fromCurrencyExchangeRate = _context.CurrencyExchangeRates.FirstOrDefault(x => x.FromCurrencyId == senderAccount.CurrencyId);
+                var toCurrencyExchangeRate = _context.CurrencyExchangeRates.FirstOrDefault(x => 
+                    x.ToCurrencyId == receiverAccount.CurrencyId && 
+                    x.FromCurrencyId == senderAccount.CurrencyId
+                );
                 
                 var receiverOldBalance = receiverAccount.Amount;
-                var receiverNewBalance = receiverOldBalance + (decimal)((double)request.Amount * (fromCurrencyExchangeRate?.Rate ?? 1));
+                var receiverNewBalance = receiverOldBalance + (decimal)((double)request.Amount * (toCurrencyExchangeRate?.Rate ?? 1));
                 receiverAccount.Amount = receiverNewBalance;
                 
                 _context.AccountHistories.Add(new AccountHistory
@@ -220,13 +224,15 @@ namespace SnackShackAPI.Services
                     ChangeDate = DateTime.UtcNow,
                     NewAmount = receiverNewBalance,
                     PreviousAmount = receiverOldBalance,
-                    TransactionId = transaction.Id,
+                    TransactionId = accountTransaction.Id,
                 });
 
                 result = (await _context.SaveChangesAsync()) > 0;
+                await transaction.CommitAsync();
             }
             catch (Exception e)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(e, $"Error occurred while transfering funds for user {request.UserId}");
                 result = false;
             }

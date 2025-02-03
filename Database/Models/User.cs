@@ -12,7 +12,7 @@ namespace SnackShackAPI.Database.Models
         public string Email { get; set; }
 
         [Required]
-        public string Username { get; set; }
+        public string DiscordUserID { get; set; }
 
         [Required]
         public DateTime CreatedDate { get; set; }

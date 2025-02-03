@@ -1,46 +1,34 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SnackShackAPI.DTOs;
+using SnackShackAPI.Models;
 using SnackShackAPI.Services;
+using System.Security.Claims;
 
 namespace SnackShackAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IAccountService _accountService;
+        private readonly IConfiguration _config;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, IAccountService accountService, IConfiguration config)
         {
             _userService = userService;
+            _accountService = accountService;
+            _config = config;
         }
 
-        // GET: api/User/{userId}
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUser(Guid userId)
-        {
-            try
-            {
-                var user = await _userService.GetUser(userId);
-                if (user == null)
-                {
-                    return NotFound(new { message = "User not found" });
-                }
-                return Ok(user);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception here if needed
-                return StatusCode(500, new { message = "An error occurred while retrieving the user.", error = ex.Message });
-            }
-        }
-
-        // GET: api/User
         [HttpGet]
         public async Task<IActionResult> GetUsers()
         {
             try
             {
+                string userId = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier).Value;
                 var users = await _userService.GetUsers();
                 return Ok(users);
             }
@@ -51,91 +39,43 @@ namespace SnackShackAPI.Controllers
             }
         }
 
-        // POST: api/User
-        [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] UserDTO user)
-        {
-            try
-            {
-                var success = await _userService.CreateUser(user);
-                if (success)
-                {
-                    return CreatedAtAction(nameof(GetUser), new { userId = user.Id }, user);
-                }
-                return BadRequest(new { message = "Error creating the user." });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception here if needed
-                return StatusCode(500, new { message = "An error occurred while creating the user.", error = ex.Message });
-            }
-        }
-
-        // PUT: api/User/{userId}
-        [HttpPut("{userId}")]
-        public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UserDTO user)
-        {
-            try
-            {
-                var success = await _userService.UpdateUser(userId, user);
-                if (success)
-                {
-                    return NoContent(); // 204 No Content for successful update
-                }
-                return BadRequest(new { message = "Error updating the user." });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception here if needed
-                return StatusCode(500, new { message = "An error occurred while updating the user.", error = ex.Message });
-            }
-        }
-
-        // DELETE: api/User/{userId}
-        [HttpDelete("{userId}")]
-        public async Task<IActionResult> DeleteUser(Guid userId)
-        {
-            try
-            {
-                var success = await _userService.DeleteUser(userId);
-                if (success)
-                {
-                    return NoContent(); // 204 No Content for successful deletion
-                }
-                return NotFound(new { message = "User not found." });
-            }
-            catch (Exception ex)
-            {
-                // Log the exception here if needed
-                return StatusCode(500, new { message = "An error occurred while deleting the user.", error = ex.Message });
-            }
-        }
-
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrentUser()
         {
             try
             {
-                var email = User.Claims.FirstOrDefault(c => c.Type.Contains("email"))?.Value;
-
-                if (string.IsNullOrEmpty(email))
+                string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                string email = User.FindFirst(ClaimTypes.Email)?.Value;
+                if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(email))
                 {
-                    return Unauthorized(new { message = "Invalid or missing email claim in token." });
+                    return Unauthorized(new { message = "Invalid or missing claim in token." });
                 }
 
-                // Use the email to retrieve the user
-                var user = await _userService.GetUser(email);
+                var user = await _userService.GetUserByDiscord(userId);
+
+                //If no user is found, create new user with discordId and email from token 
                 if (user == null)
                 {
-                    return NotFound(new { message = "User not found." });
+                    var result = await this._userService.CreateUser(userId, email);
+                    if (!result)
+                    {
+                        throw new Exception("An error occurred while creating the user.");
+                    }
+
+                    //create default accounts from config for user
+                    var accounts = _config.GetSection("Data:DefaultAccounts").Get<List<DefaultAccountConfig>>() ?? [];
+                    user = await _userService.GetUserByDiscord(userId);
+                    foreach (var account in accounts)
+                    {
+                        await _accountService.CreateAccount(user.Id, account.Name, account.StartingAmount, account.CurrencyCode);
+                    }
                 }
 
                 return Ok(user);
             }
             catch (Exception ex)
             {
-                // Log the exception here if needed
-                return StatusCode(500, new { message = "An error occurred while retrieving the user.", error = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while retrieving the current user.", error = ex.Message });
             }
         }
 

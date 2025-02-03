@@ -79,7 +79,7 @@ namespace SnackShackAPI.Database
                     FromCurrencyId = Guid.Parse("18a8c6a6-18a1-4421-9bfd-5886a011be17"),
                     ToCurrencyId = Guid.Parse("6922d54e-5509-4e5c-aeaa-4399a90f7073"),
                     EffectiveDate = new DateTime(2025, 01, 20, 0, 0, 0, DateTimeKind.Utc),
-                    Rate = 10
+                    Rate = .1
                 },
                 new CurrencyExchangeRate //Da Wood to bowl
                 {
@@ -87,7 +87,7 @@ namespace SnackShackAPI.Database
                     FromCurrencyId = Guid.Parse("6922d54e-5509-4e5c-aeaa-4399a90f7073"),
                     ToCurrencyId = Guid.Parse("18a8c6a6-18a1-4421-9bfd-5886a011be17"),
                     EffectiveDate = new DateTime(2025, 01, 20, 0, 0, 0, DateTimeKind.Utc),
-                    Rate = .1
+                    Rate = 10
                 },
                 new CurrencyExchangeRate //Da Wood to Million
                 {
