@@ -10,6 +10,7 @@ namespace SnackShackAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AccountController : ControllerBase
     {
         private readonly IAccountService _accountService;
@@ -19,12 +20,13 @@ namespace SnackShackAPI.Controllers
             _accountService = accountService;
         }
 
-        [HttpGet("GetByUserGetByUser/{userId}")]
-        public async Task<IActionResult> GetAccount(Guid userId)
+        [HttpGet("GetByUser")]
+        public async Task<IActionResult> GetAccounts()
         {
             try
             {
-                var accounts = await _accountService.GetAccountsByUser(userId);
+                string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var accounts = await _accountService.GetAccountsByDiscordUser(userId);
 
                 return Ok(accounts);
             }
@@ -34,18 +36,19 @@ namespace SnackShackAPI.Controllers
             }
         }
 
-        [HttpPut("UpdateAccountInfo/{accountId}")]
-        public async Task<IActionResult> UpdateAccountInformation(Guid accountId, [FromBody] UpdateAccountInfomationRequest data)
+        [HttpGet("GetAccountHistory/{accountId}")]
+        public async Task<IActionResult> GetAccountHistory(Guid accountId)
         {
             try
             {
-                var result = await _accountService.UpdateAccountInformation(accountId, data);
+                string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var accounts = await _accountService.GetAccountHistory(userId, accountId);
 
-                return Ok();
+                return Ok(accounts);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "An error occurred while updating the users accounts.", error = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while retrieving the user account history.", error = ex.Message });
             }
         }
 

@@ -4,8 +4,7 @@ using SnackShackAPI.Database;
 using SnackShackAPI.Database.Models;
 using SnackShackAPI.DTOs;
 using SnackShackAPI.Models;
-using SnackShackAPI.Services;
-using System.Runtime.InteropServices.Marshalling;
+using SnackShackAPI.Models.DTOs;
 
 namespace SnackShackAPI.Services
 {
@@ -54,30 +53,6 @@ namespace SnackShackAPI.Services
             return result;
         }
 
-        public async Task<bool> UpdateAccountInformation(Guid acccountId, UpdateAccountInfomationRequest data)
-        {
-            bool result = false;
-            try
-            {
-                var account = await _context.Accounts.FirstOrDefaultAsync(x => x.Id == acccountId);
-
-                if (account == null)
-                {
-                    throw new Exception("Account doesn't exist");
-                }
-
-                account.AccountName = data.AccountName;
-
-                result = (await _context.SaveChangesAsync()) > 0;
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, $"Error occurred while updating account information {acccountId}");
-                result = false;
-            }
-
-            return result;
-        }
         public async Task<bool> UpdateAccountBalance(UpdateAccountBalanceRequest request)
         {
             bool result = false;
@@ -134,14 +109,16 @@ namespace SnackShackAPI.Services
         }
 
 
-        public async Task<List<AccountDTO>> GetAccountsByUser(Guid userId)
+        public async Task<List<AccountDTO>> GetAccountsByDiscordUser(string discordUserId)
         {
             var result = new List<AccountDTO>();
 
             try
             {
-                result = _context.Accounts.Where(x => x.UserId == userId)
+                result = _context.Accounts
+                    .Include("User")
                     .Include("Currency")
+                    .Where(x => x.User.DiscordUserID == discordUserId)
                     .Select(x => new AccountDTO {
                         AccountId = x.Id,
                         Amount = x.Amount,
@@ -152,7 +129,7 @@ namespace SnackShackAPI.Services
             }
             catch (Exception e)
             {
-                _logger.LogError(e, $"Error occurred while creating account for user {userId}");
+                _logger.LogError(e, $"Error occurred while creating account for user {discordUserId}");
             }
 
             return result;
@@ -239,12 +216,45 @@ namespace SnackShackAPI.Services
 
             return result;
         }
+
+        public async Task<List<AccountHistoryDTO>> GetAccountHistory(string userId, Guid accountId)
+        {
+            var result = new List<AccountHistoryDTO>();
+
+            try
+            {
+                result = await (
+                    from ah in _context.AccountHistories
+                    join t in _context.Transactions
+                    on ah.TransactionId equals t.Id
+                    join a in _context.Accounts
+                    on ah.AccountId equals a.Id
+                    join u in _context.Users
+                    on a.UserId equals u.Id
+                    where u.DiscordUserID == userId && a.Id == accountId
+                    select new AccountHistoryDTO
+                    {
+                        ChangeDate = ah.ChangeDate,
+                        NewAmount = ah.NewAmount,
+                        PreviousAmount = ah.PreviousAmount,
+                        TransactionAmount = t.Amount,
+                        TransactionNotes = t.Notes ?? "",
+                    }
+                ).OrderByDescending(x => x.ChangeDate).ToListAsync();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error occurred while getting account histories for user {userId}");
+            }
+
+            return result;
+        }
     }
     public interface IAccountService
     {
         Task<bool> CreateAccount(Guid userId, string name, decimal? startingAmount, string currencyCode);
-        Task<List<AccountDTO>> GetAccountsByUser(Guid userId);
-        Task<bool> UpdateAccountInformation(Guid acccountId, UpdateAccountInfomationRequest data);
+        Task<List<AccountDTO>> GetAccountsByDiscordUser(string discordUserId);
+        Task<List<AccountHistoryDTO>> GetAccountHistory(string discordUserId, Guid account);
         Task<bool> UpdateAccountBalance(UpdateAccountBalanceRequest request);
         Task<bool> TransferFunds(TransferFundsRequest request);
     }
