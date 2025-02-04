@@ -142,6 +142,11 @@ namespace SnackShackAPI.Services
 
             try
             {
+                if (request.Amount % 2 != 0 || request.Amount <= 0)
+                {
+                    throw new Exception("Invalid Transfer Amount");
+                }
+
                 var senderAccount = _context.Accounts.Include("Currency").FirstOrDefault(x => x.Id == request.FromAccountId);
                 var receiverAccount = _context.Accounts.Include("Currency").FirstOrDefault(x => x.Id == request.ToAccountId);
 
