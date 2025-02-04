@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SnackShackAPI.Services;
 
 namespace SnackShackAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ExchangeRatesController : ControllerBase
     {
         private readonly IExchangeRateService _exchangeRateService;

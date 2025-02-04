@@ -142,8 +142,8 @@ namespace SnackShackAPI.Services
 
             try
             {
-                var senderAccount = _context.Accounts.FirstOrDefault(x => x.Id == request.FromAccountId);
-                var receiverAccount = _context.Accounts.FirstOrDefault(x => x.Id == request.ToAccountId);
+                var senderAccount = _context.Accounts.Include("Currency").FirstOrDefault(x => x.Id == request.FromAccountId);
+                var receiverAccount = _context.Accounts.Include("Currency").FirstOrDefault(x => x.Id == request.ToAccountId);
 
                 if (senderAccount == null)
                 {
@@ -160,6 +160,12 @@ namespace SnackShackAPI.Services
                     throw new Exception("Insufficient funds, unable to complete request");
                 }
 
+                var toCurrencyExchangeRate = _context.CurrencyExchangeRates.FirstOrDefault(x =>
+                    x.ToCurrencyId == receiverAccount.CurrencyId &&
+                    x.FromCurrencyId == senderAccount.CurrencyId
+                );
+                decimal newConvertedAmount = (decimal)((double)request.Amount * (toCurrencyExchangeRate?.Rate ?? 1));
+
                 var accountTransaction = new Transaction
                 {
                     TransactionDate = DateTime.UtcNow,
@@ -168,7 +174,7 @@ namespace SnackShackAPI.Services
                     InitiatedByUserId = request.UserId,
                     ReceiverAccountId = request.ToAccountId,
                     SenderAccountId = request.FromAccountId,
-                    Notes = request.Notes
+                    Notes = $"Account transfer {request.Amount} {senderAccount.Currency.CurrencyCode} => {newConvertedAmount} {receiverAccount.Currency.CurrencyCode}"
                 };
                 _context.Transactions.Add(accountTransaction);
 
@@ -186,13 +192,8 @@ namespace SnackShackAPI.Services
                     TransactionId = accountTransaction.Id,
                 });
 
-                var toCurrencyExchangeRate = _context.CurrencyExchangeRates.FirstOrDefault(x => 
-                    x.ToCurrencyId == receiverAccount.CurrencyId && 
-                    x.FromCurrencyId == senderAccount.CurrencyId
-                );
-                
                 var receiverOldBalance = receiverAccount.Amount;
-                var receiverNewBalance = receiverOldBalance + (decimal)((double)request.Amount * (toCurrencyExchangeRate?.Rate ?? 1));
+                var receiverNewBalance = receiverOldBalance + newConvertedAmount;
                 receiverAccount.Amount = receiverNewBalance;
                 
                 _context.AccountHistories.Add(new AccountHistory
@@ -231,6 +232,8 @@ namespace SnackShackAPI.Services
                     on ah.AccountId equals a.Id
                     join u in _context.Users
                     on a.UserId equals u.Id
+                    join c in _context.Currencies
+                    on a.CurrencyId equals c.Id
                     where u.DiscordUserID == userId && a.Id == accountId
                     select new AccountHistoryDTO
                     {
@@ -239,6 +242,7 @@ namespace SnackShackAPI.Services
                         PreviousAmount = ah.PreviousAmount,
                         TransactionAmount = t.Amount,
                         TransactionNotes = t.Notes ?? "",
+                        CurrencyCode = c.CurrencyCode
                     }
                 ).OrderByDescending(x => x.ChangeDate).ToListAsync();
             }

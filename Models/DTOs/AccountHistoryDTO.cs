@@ -7,5 +7,6 @@
         public decimal PreviousAmount { get; set; }
         public decimal TransactionAmount { get; set; }
         public string TransactionNotes { get; set; }
+        public string CurrencyCode { get; set; }
     }
 }

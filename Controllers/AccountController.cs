@@ -25,6 +25,7 @@ namespace SnackShackAPI.Controllers
         {
             try
             {
+                //grab discordUserId from token
                 string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var accounts = await _accountService.GetAccountsByDiscordUser(userId);
 
@@ -41,6 +42,7 @@ namespace SnackShackAPI.Controllers
         {
             try
             {
+                //grab discordUserId from token
                 string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var accounts = await _accountService.GetAccountHistory(userId, accountId);
 
@@ -67,8 +69,10 @@ namespace SnackShackAPI.Controllers
             }
         }
 
+
+        //Need to remove
         [HttpPost("UpdateAccountBalance")]
-        public async Task<IActionResult> UpdateAccountBalance([FromBody]UpdateAccountBalanceRequest request) 
+        public async Task<IActionResult> UpdateAccountBalance([FromBody] UpdateAccountBalanceRequest request)
         {
             try
             {
