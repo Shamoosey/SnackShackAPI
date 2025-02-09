@@ -125,7 +125,7 @@ namespace SnackShackAPI.Services
                         AccountName = x.AccountName,
                         CurrencyId = x.Currency.Id,
                         CurrencyCode = x.Currency.CurrencyCode,
-                }).ToList();
+                }).OrderBy(x => x.Amount).ToList();
             }
             catch (Exception e)
             {
